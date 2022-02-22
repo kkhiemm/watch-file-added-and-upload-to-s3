@@ -12,12 +12,12 @@ const getS3 = () => {
   return res;
 };
 
-const uploadToS3 = (s3, file) => {
+const uploadToS3 = (s3, file, contentType) => {
   var uploadParams = {
     Bucket: "Bucket",
     Key: "",
     ACL: "public-read",
-    // ContentType: "image/jpeg",
+    ContentType: contentType,
     Body: "",
   };
 
@@ -52,7 +52,8 @@ const main = async () => {
   chokidar.watch("../camera-transfer-server").on("all", (event, path) => {
     console.log(event, path);
     if (event == "add" && (path.endsWith("jpeg") || path.endsWith("mp4"))) {
-      uploadToS3(s3, path);
+      const contentType = path.endsWith("mp4") ? "video/mp4" : "image/jpeg";
+      uploadToS3(s3, path, contentType);
     }
   });
 };
