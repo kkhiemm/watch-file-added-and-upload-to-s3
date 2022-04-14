@@ -12,7 +12,7 @@ const getS3 = () => {
   return res;
 };
 
-const uploadToS3 = (s3, file, contentType) => {
+const uploadToS3 = (s3, file, contentType, cb) => {
   var uploadParams = {
     Bucket: "Bucket",
     Key: "",
@@ -41,7 +41,34 @@ const uploadToS3 = (s3, file, contentType) => {
     }
     if (data) {
       console.log("Upload Success", data.Location);
+      cb(data.Location);
     }
+  });
+};
+
+const addLinkToDb = async (imei, type, link) => {
+  var mysql = require("mysql");
+  var con = mysql.createConnection({
+    host: "localhost",
+    port: "3306",
+    user: "root",
+    password: "root",
+    database: "gpsgsm",
+  });
+  con.connect(function (err) {
+    if (err) throw err;
+    console.log("Connected!");
+  });
+  console.log("imei", imei, type, link);
+  var sql = `INSERT INTO media_files (imei, type, location) VALUES ('${imei}', '${type}', '${link}');`;
+  con.query(sql, function (err, result) {
+    if (err) throw err;
+    console.log("inserted!");
+  });
+
+  con.end(function (err) {
+    if (err) throw err;
+    console.log("Closed!");
   });
 };
 
@@ -49,13 +76,20 @@ const main = async () => {
   const s3 = getS3();
 
   // One-liner for current directory
-  chokidar.watch("../camera-transfer-server").on("all", (event, path) => {
-    console.log(event, path);
-    if (event == "add" && (path.endsWith("jpeg") || path.endsWith("mp4"))) {
-      const contentType = path.endsWith("mp4") ? "video/mp4" : "image/jpeg";
-      uploadToS3(s3, path, contentType);
-    }
-  });
+  chokidar
+    .watch("../camera-transfer-server", { ignoreInitial: true })
+    .on("all", (event, path) => {
+      console.log(event, path);
+      if (event == "add" && (path.endsWith("jpeg") || path.endsWith("mp4"))) {
+        const contentType = path.endsWith("mp4") ? "video/mp4" : "image/jpeg";
+        let arr = path.split("/"); // linux
+        // let arr = path.split("\\"); // windows
+        const imei = arr[2];
+        uploadToS3(s3, path, contentType, (link) =>
+          addLinkToDb(imei, contentType, link)
+        );
+      }
+    });
 };
 
 main();
